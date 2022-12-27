@@ -1,0 +1,97 @@
+---
+
+- name: seed-ssh.create|check remote_user
+  when: 
+    - remote_user | default(None) == ''
+  ansible.builtin.pause:
+    prompt: "What is remote user?"
+    echo: true
+  register: prompt_remote_user
+
+- name: seed-ssh.create|check host_group
+  when: 
+    - host_group | default(None) == ''
+  ansible.builtin.pause:
+    prompt: "What is host group?"
+    echo: true
+  register: prompt_host_group
+
+- name: seed-ssh.create|init _ssh
+  ansible.builtin.set_fact:
+    _ssh:
+      remote_user: "{{ remote_user | default(prompt_remote_user.user_input) }}"
+      host_group: "{{ host_group | default(prompt_host_group.user_input) }}"
+      ansible_group: "{{ ansible_group | default('remote') }}"
+      keyscan_type: "{{ keyscan_type | default('ed25519') }}"
+
+# - debug: msg="{{ _ssh }}"
+
+- name: seed-ssh.create|register SEED host with variable
+  ansible.builtin.add_host:
+    name: "SEED"
+    remote_user: "{{ _ssh.remote_user }}"
+    host_group: "{{ _ssh.host_group }}"
+
+- name: seed-ssh.create|create a directory for ssh
+  ansible.builtin.file:
+    path: "~/.ssh/{{ _ssh.host_group }}/"
+    state: directory
+
+- name: seed-ssh.create|generate an OpenSSH keypair rsa 2048
+  community.crypto.openssh_keypair:
+    path: "~/.ssh/{{ _ssh.host_group }}/id_rsa"
+    size: 2048
+    type: rsa
+    comment: "{{ _ssh.host_group }}"
+
+- name: seed-ssh.create|install the package for ssh_config task
+  ansible.builtin.pip:
+    name: 
+      - stormssh
+    state: latest
+  register: pip_result
+  until: "pip_result is not failed"
+  retries: 3
+  delay: 5
+
+- name: seed-ssh.create|add a host in the configuration
+  community.general.ssh_config:
+    ssh_config_file: "~/.ssh/config"
+    host: "{{ host }}"
+    hostname: "{{ host }}"
+    remote_user: "{{ _ssh.remote_user }}"
+    identity_file: "~/.ssh/{{ _ssh.host_group }}/id_rsa"
+    # user_known_hosts_file: "~/.ssh/known_hosts"
+    state: present
+  loop: "{{ groups[_ssh.ansible_group] }}"
+  loop_control:
+    loop_var: host
+
+- name: seed-ssh.create|get ssh ecdsa fingerprint for host
+  ansible.builtin.command: ssh-keyscan -t {{ _ssh.keyscan_type }} {{ host }} | grep -v ^#
+  register: keyscan_key_list
+  loop: "{{ groups[_ssh.ansible_group] }}"
+  loop_control:
+    loop_var: host
+  ignore_errors: yes
+
+- name: seed-ssh.create|set ssh ecdsa fingerprint to known_hosts
+  when: keyscan_key_list is not failed
+  ansible.builtin.known_hosts:
+    path: ~/.ssh/known_hosts
+    name: "{{ keyscan_key_item.host }}"
+    key: "{{ keyscan_key_item.stdout }}"
+  loop: "{{ keyscan_key_list.results }}"
+  loop_control:
+    loop_var: keyscan_key_item
+
+- name: seed-ssh.create|print info
+  debug:
+    msg:
+      - "user: {{ lookup('env', 'USER') }}"
+      - "path: ~/.ssh/{{ _ssh.host_group }}/"
+      - "config: ~/.ssh/config"
+
+- name: seed-ssh.create|reset _ssh
+  ansible.builtin.set_fact:
+    _ssh: !!null
