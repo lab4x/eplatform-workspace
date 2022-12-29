@@ -1,0 +1,44 @@
+---
+
+
+- name: performance
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-test/performance/bench/ansible-playbook.test.yml
+  hosts: linux
+  tasks:
+
+    - name: download bench and run
+      ansible.builtin.shell: curl -Lso- bench.sh | bash
+      register: bench_result
+      # output to stderr
+      ignore_errors: yes
+
+- name: result
+  hosts: performance
+  tasks:
+
+    - name: mkdir for result_path
+      ansible.builtin.file:
+        state: directory
+        path: "{{ performance.result_path }}/"
+      ignore_errors: yes
+
+    - name: save to result_path
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.copy:
+        content: "{{ hostvars[item]['bench_result']['stdout'] }}"
+        dest: "{{ performance.result_path }}/bench_{{ ansible_date_time.date }}_{{ item }}.txt"
+      ignore_errors: yes
+
+    - name: print bench_result
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.pause:
+        seconds: 1
+        prompt: |
+
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
+          {{ hostvars[item]['bench_result'].stdout }}
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
