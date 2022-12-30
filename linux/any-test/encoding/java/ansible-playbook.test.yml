@@ -1,0 +1,70 @@
+---
+
+
+- name: encoding
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-test/encoding/java/ansible-playbook.test.yml
+  hosts: linux
+  tasks:
+
+    - name: install yum package
+      become: true
+      when: ansible_pkg_mgr == 'yum'
+      ansible.builtin.package:
+        name: java-devel
+        state: present
+
+    - name: install apt package
+      become: true
+      when: ansible_pkg_mgr == 'apt'
+      ansible.builtin.package:
+        name: default-jdk
+        state: present
+
+    - name: creating java file
+      ansible.builtin.copy:
+        dest: ~/check_java_encoding.java
+        content: |
+          import java.nio.charset.Charset;
+
+          public class check_java_encoding {
+              public static void main(String[] args) {
+                  System.out.println("charset.encoding=" + Charset.defaultCharset().name());
+                  System.out.println("file.encoding=" + System.getProperty("file.encoding"));
+              }
+          }
+
+    - name: compile java file
+      ansible.builtin.shell: javac ~/check_java_encoding.java
+
+    - name: run java file
+      loop:
+        - ''
+        - 'JAVA_TOOL_OPTIONS=-Dfile.encoding=ISO-8859-1'
+        - 'JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF8'
+      ansible.builtin.shell: 
+        cmd: "{{ item }} java -cp . check_java_encoding"
+        chdir: "~"
+      register: java_result
+
+    - name: print result
+      ansible.builtin.pause:
+        seconds: 1
+        prompt: |
+
+          {% for item in java_result.results %}
+
+          ENCODING [{{ item.item }}] //////////////////////////////////////////////////
+          {{ item.stdout }}
+          ENCODING [{{ item.item }}] //////////////////////////////////////////////////
+          {% endfor %}
+
+          
+
+    # - name: print result
+    #   ansible.builtin.debug: 
+    #     msg: "{{ java_result.results | map(attribute='stdout') }}"
