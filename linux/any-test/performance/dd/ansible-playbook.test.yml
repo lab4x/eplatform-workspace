@@ -1,0 +1,56 @@
+---
+
+
+- name: performance
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-test/performance/dd/ansible-playbook.test.yml
+  hosts: linux
+  tasks:
+
+    - name: run
+      ansible.builtin.shell: |
+        dd if=/dev/zero of=/tmp/test1.img bs=1G count=1 oflag=dsync
+        dd if=/dev/zero of=/tmp/test2.img bs=64M count=1 oflag=dsync
+        dd if=/dev/zero of=/tmp/test3.img bs=1M count=256 oflag=dsync
+        dd if=/dev/zero of=/tmp/test4.img bs=8k count=10k oflag=dsync
+        dd if=/dev/zero of=/tmp/test5.img bs=512 count=1000 oflag=dsync
+        rm -rdf /tmp/test1.img
+        rm -rdf /tmp/test2.img
+        rm -rdf /tmp/test3.img
+        rm -rdf /tmp/test4.img
+        rm -rdf /tmp/test5.img
+      register: bench_result
+      # output to stderr
+      ignore_errors: yes
+
+    - debug: msg="{{ bench_result }}"
+
+- name: result
+  hosts: performance
+  tasks:
+
+    - name: mkdir for result_path
+      ansible.builtin.file:
+        state: directory
+        path: "{{ performance.result_path }}/"
+      ignore_errors: yes
+
+    - name: save to result_path
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.copy:
+        content: "{{ hostvars[item]['bench_result']['stderr'] }}"
+        dest: "{{ performance.result_path }}/dd_{{ ansible_date_time.date }}_{{ item }}.txt"
+      ignore_errors: yes
+
+    - name: print bench_result
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.pause:
+        seconds: 1
+        prompt: |
+
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
+          {{ hostvars[item]['bench_result'].stderr }}
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
