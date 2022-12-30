@@ -1,0 +1,86 @@
+---
+
+
+- name: performance
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-test/performance/unixbench/source/ansible-playbook.test.yml
+  hosts: linux
+  tasks:
+
+    - name: install yum package
+      become: true
+      when: ansible_pkg_mgr == 'yum'
+      ansible.builtin.package:
+        name: 
+          - git
+          - make
+          - automake
+          - autoconf
+          - gcc
+          - gcc-c++
+          - time
+          - perl-Time-HiRes
+        state: present
+
+    - name: install apt package
+      become: true
+      when: ansible_pkg_mgr == 'apt'
+      ansible.builtin.package:
+        name: 
+          - git
+          - make
+          - automake
+          - autoconf
+          - gcc
+          - time
+          - perl
+        state: present
+
+    - name: get git source
+      ansible.builtin.git:
+        repo: 'https://github.com/kdlucas/byte-unixbench.git'
+        dest: ~/byte-unixbench
+        version: v5.1.3
+
+    - name: make
+      ansible.builtin.shell: 
+        cmd: make
+        chdir: ~/byte-unixbench/UnixBench
+
+    - name: run
+      ansible.builtin.shell: 
+        cmd: ./Run
+        chdir: ~/byte-unixbench/UnixBench
+      register: bench_result
+      # output to stderr
+      ignore_errors: yes
+
+- name: result
+  hosts: performance
+  tasks:
+
+    - name: mkdir for result_path
+      ansible.builtin.file:
+        state: directory
+        path: "{{ performance.result_path }}/"
+      ignore_errors: yes
+        
+    - name: save to result_path
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.copy:
+        content: "{{ hostvars[item]['bench_result']['stdout'] }}"
+        dest: "{{ performance.result_path }}/unixbench_{{ ansible_date_time.date }}_{{ item }}.txt"
+
+    - name: print bench_result
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.pause:
+        seconds: 1
+        prompt: |
+
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
+          {{ hostvars[item]['bench_result'].stdout }}
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////

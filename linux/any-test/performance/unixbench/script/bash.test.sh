@@ -1,0 +1,1 @@
+curl -Lso- https://github.com/teddysun/across/raw/master/unixbench.sh | bash

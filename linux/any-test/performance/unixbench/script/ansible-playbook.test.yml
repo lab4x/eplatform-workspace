@@ -1,0 +1,45 @@
+---
+
+
+- name: performance
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-test/performance/unixbench/script/ansible-playbook.test.yml
+  hosts: linux
+  tasks:
+
+    - name: download bench and run
+      become: true
+      ansible.builtin.shell: curl -Lso- https://github.com/teddysun/across/raw/master/unixbench.sh | bash
+      register: bench_result
+      # output to stderr
+      ignore_errors: yes
+
+- name: result
+  hosts: performance
+  tasks:
+
+    - name: mkdir for result_path
+      ansible.builtin.file:
+        state: directory
+        path: "{{ performance.result_path }}/"
+      ignore_errors: yes
+        
+    - name: save to result_path
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.copy:
+        content: "{{ hostvars[item]['bench_result']['stdout'] }}"
+        dest: "{{ performance.result_path }}/unixbench_{{ ansible_date_time.date }}_{{ item }}.txt"
+
+    - name: print bench_result
+      loop: "{{ groups['linux'] }}"
+      ansible.builtin.pause:
+        seconds: 1
+        prompt: |
+
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
+          {{ hostvars[item]['bench_result'].stdout }}
+          PERFORMANCE [{{ item }}] //////////////////////////////////////////////////
