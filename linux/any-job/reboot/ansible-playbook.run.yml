@@ -1,0 +1,37 @@
+---
+
+- name: run
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-job/reboot/ansible-playbook.run.yml
+  hosts: linux
+  become: yes
+  tasks: 
+  
+    - name: reboot the server
+      ansible.builtin.shell: "sleep 5 && reboot"
+      become: yes
+      async: 1
+      poll: 0
+    
+    - name: pause for 15 seconds
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: wait for the reboot to complete if there was a change.
+      ansible.builtin.wait_for_connection:
+        connect_timeout: 10
+        sleep: 5
+        delay: 5
+        timeout: 600
+
+    - name: check the uptime of the server
+      ansible.builtin.shell: "uptime"
+      register: uptime_output
+
+    - name: print uptime
+      ansible.builtin.debug:
+        var: uptime_output.stdout_lines
