@@ -1,0 +1,18 @@
+---
+
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/hostname/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+  
+    - name: "change hostname"
+      when: hostname is defined
+      ansible.builtin.hostname:
+        name: "{{ hostname }}"
