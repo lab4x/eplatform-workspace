@@ -1,0 +1,46 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/apt/sources/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+  
+    - name: check packager
+      when: 
+        - apt.sources.check | default(true) | bool
+        - ansible_pkg_mgr != 'apt'
+      ansible.builtin.fail:
+        msg: just for apt packager not '{{ ansible_pkg_mgr }}'
+  
+    - name: check config mode
+      when: 
+        - apt.sources.sed is defined
+        - apt.sources.cp is defined
+      ansible.builtin.fail:
+        msg: just choose one of 'apt.sources.sed' and 'apt.sources.cp'
+
+    - name: sed replace apt sources
+      when: 
+        - apt.sources.sed is defined
+        - apt.sources.cp is undefined
+      ansible.builtin.shell: "sudo sed \
+        -e '{{ apt.sources.sed }}' \
+        -i.bak \
+        /etc/apt/sources.list"
+
+    - name: file replace apt sources
+      loop: "{{ apt.sources.cp | list }}"
+      when: 
+        - apt.sources.sed is undefined
+        - apt.sources.cp is defined
+      ansible.builtin.copy: "{{ item }}"
+
+    - name: update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
