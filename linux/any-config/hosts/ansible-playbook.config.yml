@@ -1,0 +1,81 @@
+---
+
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/hosts/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+  
+    # - name: update /etc/hosts
+    #   when: hosts is defined
+    #   ansible.builtin.blockinfile:
+    #     path: /etc/hosts
+    #     create: yes
+    #     block: |
+    #       127.0.0.1 localhost
+
+    #       # The following lines are desirable for IPv6 capable hosts
+    #       ::1 ip6-localhost ip6-loopback
+    #       fe00::0 ip6-localnet
+    #       ff00::0 ip6-mcastprefix
+    #       ff02::1 ip6-allnodes
+    #       ff02::2 ip6-allrouters
+    #       ff02::3 ip6-allhosts
+
+    #       {% for item in ansible_play_batch %}
+    #       {{ item }}    {{ hostvars[item].hostname }}    
+    #       {% endfor %}
+
+    #       {% for item in hosts %}
+    #       {{ item }}
+    #       {% endfor %}
+
+    # - debug: msg="{{ hostvars['localhost'].ansible_default_ipv4.address }}"
+    # - debug: msg="{{ hostvars['localhost'].ansible_all_ipv4_addresses }}"
+
+    
+  
+    - name: config for localhost
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        backup: true
+        create: yes
+        marker: "# {mark} ANSIBLE MANAGED BLOCK localhost"
+        block: |
+          127.0.0.1 localhost
+
+          # The following lines are desirable for IPv6 capable hosts
+          ::1 ip6-localhost ip6-loopback
+          fe00::0 ip6-localnet
+          ff00::0 ip6-mcastprefix
+          ff02::1 ip6-allnodes
+          ff02::2 ip6-allrouters
+          ff02::3 ip6-allhosts
+
+    - name: config by dynamic playbatch
+      when: hosts.dynamic.hostname | bool
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED BLOCK dynamic ansible-playbatch"
+        block: |
+          {% for item in ansible_play_batch %}
+          {% if hostvars[item].hostname is defined %}
+          {{ hostvars[item].ansible_default_ipv4.address }} {{ hostvars[item].hostname }}  
+          {% endif %} 
+          {% endfor %}
+
+    - name: config by static variable
+      when: hosts.static is defined
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        marker: "# {mark} ANSIBLE MANAGED BLOCK static ansible-variable"
+        block: |
+          {% for item in hosts.static %}
+          {{ item }}
+          {% endfor %}
