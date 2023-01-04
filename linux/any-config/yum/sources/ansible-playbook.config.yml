@@ -1,0 +1,51 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/yum/sources/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+  
+    - name: check packager
+      when: 
+        - yum.sources.check | default(true) | bool
+        - ansible_pkg_mgr != 'yum'
+      ansible.builtin.fail:
+        msg: just for yum packager not '{{ ansible_pkg_mgr }}'
+  
+    - name: check config mode
+      when: 
+        - yum.sources.sed is defined
+        - yum.sources.cp is defined
+      ansible.builtin.fail:
+        msg: just choose one of 'yum.sources.sed' and 'yum.sources.cp'
+
+    - name: sed replace yum sources
+      when: 
+        - yum.sources.sed is defined
+        - yum.sources.cp is undefined
+        - yum.sources.sed.expression is defined
+        - yum.sources.sed.expression.mirrorlist is defined
+        - yum.sources.sed.expression.baseurl is defined
+        - yum.sources.sed.file is defined
+      ansible.builtin.shell: "sudo sed \
+        -e '{{ yum.sources.sed.expression.mirrorlist }}' \
+        -e '{{ yum.sources.sed.expression.baseurl }}' \
+        -i.bak \
+        {{ yum.sources.sed.file }}"
+
+    - name: file replace yum sources
+      loop: "{{ yum.sources.cp | list }}"
+      when: 
+        - yum.sources.sed is undefined
+        - yum.sources.cp is defined
+      ansible.builtin.copy: "{{ item }}"
+
+    - name: update yum cache
+      ansible.builtin.yum:
+        update_cache: yes
