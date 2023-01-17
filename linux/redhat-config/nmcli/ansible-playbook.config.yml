@@ -1,0 +1,45 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/redhat-config/nmcli/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks:
+
+    - name: install needed network manager libs
+      ansible.builtin.yum:
+        name: 
+          - NetworkManager-glib
+          # - libnm-qt-devel
+          - nm-connection-editor
+          - libsemanage-python
+          - policycoreutils-python
+        state: present
+       
+    - name: "add Ethernet connection with static IP configuration"
+      community.general.nmcli: "{{ nmcli }}"
+        
+    # https://github.com/ansible/ansible/issues/36615
+    - name: ansible bug fix for static ip
+      ansible.builtin.replace:
+        path: '/etc/sysconfig/network-scripts/ifcfg-{{ nmcli.conn_name }}'
+        regexp: 'BOOTPROTO=.*'
+        replace: 'BOOTPROTO=static'
+        backup: yes
+
+    - name: ansible bug fix for static ip
+      ansible.builtin.shell: nmcli con mod "{{ nmcli.conn_name }}" ipv4.method manual
+
+    - name: disable default route
+      ansible.builtin.shell: nmcli con mod "{{ nmcli.conn_name }}" ipv4.never-default yes
+
+    - name: change zone trusted
+      ansible.builtin.shell: nmcli connection modify "{{ nmcli.conn_name }}" connection.zone "trusted"
+
+    - name: up connection
+      ansible.builtin.shell: nmcli connection up "{{ nmcli.conn_name }}"
