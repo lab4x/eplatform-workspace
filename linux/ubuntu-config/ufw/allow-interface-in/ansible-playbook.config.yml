@@ -1,0 +1,18 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/ubuntu-config/ufw/allow-interface-in/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks:
+
+    - name: allow incoming access to interface
+      community.general.ufw:
+        rule: allow
+        interface: "{{ ufw.allow_interface_in }}"
+        direction: in
