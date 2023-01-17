@@ -1,0 +1,31 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/apt/packages/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+  
+    - name: check packager
+      when: 
+        - apt.packages.check | default(true) | bool
+        - ansible_pkg_mgr != 'apt'
+      ansible.builtin.fail:
+        msg: just for apt packager not '{{ ansible_pkg_mgr }}'
+
+    - name: update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: config apt package
+      loop: "{{ apt.packages.list }}"
+      ansible.builtin.apt: "{{ item }}"
+      register: package_result
+      until: "package_result is not failed"
+      retries: 3
+      delay: 5
