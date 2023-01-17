@@ -1,0 +1,71 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/docker/swarm/ansible-playbook.config.yml
+  hosts: docker-manager[0]
+  become: true
+  tasks:
+
+    - name: check if swarm has already been initialized
+      ansible.builtin.shell: docker node ls
+      register: swarm_status
+      ignore_errors: true
+
+    - name: initialize docker swarm
+      ansible.builtin.shell: >
+          docker swarm init
+          --advertise-addr={{ advertise_addr }}:2377
+          --listen-addr 0.0.0.0
+          --data-path-port 5789
+      when: swarm_status.rc != 0
+      run_once: true
+
+    - name: get the manager join-token
+      ansible.builtin.shell: docker swarm join-token --quiet manager
+      register: manager_token
+      tags: swarm
+
+    - name: get the worker join-token
+      ansible.builtin.shell: docker swarm join-token --quiet worker
+      register: worker_token
+      tags: swarm
+
+- name: config
+  hosts: docker-manager[1:]
+  become: true
+  tasks: 
+
+    - name: check if swarm state
+      ansible.builtin.shell: |
+        docker info --format '{{ '{{' }}.Swarm.LocalNodeState{{ '}}' }}'
+      register: worker_state
+
+    - name: add workers to the swarm
+      when: worker_state.stdout == 'inactive'
+      ansible.builtin.shell: |
+        docker swarm join \
+          --token {{ hostvars[groups['docker-manager'][0]]['manager_token']['stdout'] }} \
+          {{ join_addr }}"
+  
+- name: config
+  hosts: docker-worker
+  become: true
+  tasks: 
+
+    - name: check if swarm state
+      ansible.builtin.shell: |
+        docker info --format '{{ '{{' }}.Swarm.LocalNodeState{{ '}}' }}'
+      register: worker_state
+
+    - name: add workers to the swarm
+      when: worker_state.stdout == 'inactive'
+      ansible.builtin.shell: |
+        docker swarm join \
+          --token {{ hostvars[groups['docker-manager'][0]]['worker_token']['stdout'] }} \
+          {{ join_addr }}
+  
