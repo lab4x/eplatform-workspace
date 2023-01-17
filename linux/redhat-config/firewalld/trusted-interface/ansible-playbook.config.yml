@@ -12,15 +12,17 @@
   tasks:
 
     # bug maybe
-    # - name: change interface zone
-    #   firewalld:
+    # - name: change interface to trusted zone
+    #   loop: "{{ firewalld.trusted_interface }}"
+    #   ansible.posix.firewalld:
     #     zone: trusted
-    #     interface: "{{ firewalld.trusted_interface }}"
+    #     interface: "{{ item }}"
     #     permanent: yes
     #     state: enabled
 
-    - name: change interface zone
-      shell: "firewall-cmd --permanent --zone=trusted --change-interface={{ firewalld.trusted_interface }}" 
+    - name: change interface to trusted zone
+      loop: "{{ firewalld.public_service }}"
+      shell: "firewall-cmd --permanent --zone=trusted --change-interface={{ item }}" 
 
     - name: reload firewall
       shell: "firewall-cmd --reload"  

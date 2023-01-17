@@ -1,0 +1,28 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/redhat-config/firewalld/public-service/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks:
+
+    # bug maybe
+    # - name: add service to public zone
+    #   loop: "{{ firewalld.public_service }}"
+    #   ansible.posix.firewalld:
+    #     zone: public
+    #     service: "{{ item }}"
+    #     permanent: yes
+    #     state: enabled
+
+    - name: add service to public zone
+      loop: "{{ firewalld.public_service }}"
+      shell: "firewall-cmd --permanent --zone=public --add-service {{ item }}" 
+
+    - name: reload firewall
+      shell: "firewall-cmd --reload" 
