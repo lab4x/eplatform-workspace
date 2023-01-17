@@ -1,0 +1,49 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/redhat-config/nfs-server/disable-version3/ansible-playbook.config.yml
+  hosts: nfs-server
+  become: true
+  tasks:
+
+    - name: Ensure "fav=lemonade is in section "[drinks]" in specified file
+      loop:
+        - option: vers2
+          value: n
+        - option: vers3
+          value: n
+        - option: vers4
+          value: y
+        - option: vers4.0
+          value: y
+        - option: vers4.1
+          value: y
+        - option: vers4.2
+          value: y
+      community.general.ini_file:
+        path: /etc/conf
+        section: nfsd
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+        backup: true
+
+    - name: masked nfs3 service
+      loop:
+        - rpc-statd.service
+        - rpcbind.service
+        - rpcbind.socket
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        masked: yes
+
+    - name: restart service nfs-server
+      loop:
+        - nfs-server
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: restarted
