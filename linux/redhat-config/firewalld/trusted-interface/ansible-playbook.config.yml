@@ -1,0 +1,26 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/redhat-config/firewalld/trusted-interface/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks:
+
+    # bug maybe
+    # - name: change interface zone
+    #   firewalld:
+    #     zone: trusted
+    #     interface: "{{ firewalld.trusted_interface }}"
+    #     permanent: yes
+    #     state: enabled
+
+    - name: change interface zone
+      shell: "firewall-cmd --permanent --zone=trusted --change-interface={{ firewalld.trusted_interface }}" 
+
+    - name: reload firewall
+      shell: "firewall-cmd --reload"  
