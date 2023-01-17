@@ -1,0 +1,38 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/debian-config/docker/install-ce/ansible-playbook.config.yml
+  hosts: docker
+  become: true
+  tasks: 
+
+    - name: add docker GPG apt key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: add docker apt repository
+      ansible.builtin.apt_repository:
+        repo: deb https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable
+        state: present
+
+    - name: update apt and install docker-ce
+      ansible.builtin.apt:
+        name: docker-ce
+        state: latest
+        update_cache: true
+      register: apt_result
+      until: "apt_result is not failed"
+      retries: 3
+      delay: 5
+
+    - name: start docker
+      ansible.builtin.service:
+        name: "docker"
+        enabled: true
+        state: started

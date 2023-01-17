@@ -1,0 +1,103 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/docker/gid/ansible-playbook.config.yml
+  hosts: docker
+  become: true
+  tasks:
+  
+    - name: set temp_gid
+      when: 
+        - gid.new_gid is defined
+      ansible.builtin.set_fact:
+        temp_gid: "{{ gid.temp_gid | default('99999') }}"
+        new_gid: "{{ gid.new_gid }}"
+
+    - when: new_gid is defined
+      block:
+
+        # get docker old_gid
+        - block:
+
+            - name: get docker gid
+              ansible.builtin.shell: echo $(stat -c '%g' /var/run/docker.sock)
+              register: old_gid
+
+            - when: old_gid.stdout != new_gid
+              ansible.builtin.debug:   
+                msg: "need change docker gid {{ old_gid.stdout }} to {{ new_gid }}"
+      
+        # get new_gid conflict_name
+        - when: old_gid.stdout != new_gid
+          block:
+
+            - name: get group by gid
+              ansible.builtin.shell: "echo $(getent group {{ new_gid }} | cut -d: -f1)"
+              register: conflict_name
+
+            - when: conflict_name.stdout != ''
+              ansible.builtin.debug:   
+                msg: "need exchange with conflict {{ conflict_name.stdout }}"
+
+        # change conflict gid to temp_gid
+        - when: 
+            - old_gid.stdout != new_gid
+            - conflict_name.stdout != ''
+          block: 
+
+            - name: ensure group conflict exists with temp gid
+              ansible.builtin.group:
+                name: "{{ conflict_name.stdout }}"
+                state: present
+                gid: "{{ temp_gid }}"
+
+            - name: change file for conflict group
+              ansible.builtin.shell: |
+                find / \
+                  -group {{ new_gid }} \
+                  -exec chgrp \
+                  -h {{ conflict_name.stdout }} {} \\; 2>/dev/null
+              ignore_errors: yes
+
+        # change docker gid to new_id
+        - when: old_gid.stdout != new_gid
+          block: 
+
+            - name: ensure group "docker" exists with correct gid
+              ansible.builtin.group:
+                name: docker
+                state: present
+                gid: "{{ new_gid }}"
+
+            - name: change file for docker group
+              ansible.builtin.shell: |
+                find / \
+                  -group {{ old_gid.stdout }} \
+                  -exec chgrp \
+                  -h docker {} \\; 2>/dev/null
+              ignore_errors: yes
+
+        # change conflict gid to old docker gid
+        - when: 
+            - old_gid.stdout != new_gid
+            - conflict_name.stdout != ''
+          block: 
+
+            - name: ensure group conflict exists with temp gid
+              ansible.builtin.group:
+                name: "{{ conflict_name.stdout }}"
+                state: present
+                gid: "{{ old_gid.stdout }}"
+
+            - name: change file for conflict group
+              ansible.builtin.shell: |
+                find / \
+                  -group {{ temp_gid }} \
+                  -exec chgrp \
+                  -h {{ conflict_name.stdout }} {} \\; 2>/dev/null
+              ignore_errors: yes

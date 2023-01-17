@@ -1,0 +1,64 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/docker/daemon/ansible-playbook.config.yml
+  hosts: docker
+  become: true
+  tasks:
+
+    # - name: install jq
+    #   ansible.builtin.package:
+    #     name: 
+    #       - jq
+    #     state: present
+    #   register: apt_result
+    #   until: "apt_result is not failed"
+    #   retries: 3
+    #   delay: 5
+
+    - name: stop docker
+      ansible.builtin.service:
+        name: "docker"
+        state: stopped
+
+    - name: remove daemon.json
+      ansible.builtin.file:
+        path: "{{ daemon.json_file }}"
+        state: absent
+
+    - name: create daemon.json
+      become: true
+      ansible.builtin.blockinfile:
+        path: "{{ daemon.json_file }}"
+        create: yes
+        marker: ""
+        block: |
+          {
+            "insecure-registries": [],
+            "registry-mirrors": []
+          }
+
+    - name: add 'insecure-registries' from daemon.json
+      ansible.builtin.command: >
+        jq '{{ daemon.choices_key }} += {{ daemon.choices_value }}' '{{ daemon.json_file }}'
+      register: json
+
+    - name: print new daemon.json
+      ansible.builtin.debug:
+        var: json.stdout
+
+    - name: save daemon.json
+      ansible.builtin.copy:
+        content: "{{ json.stdout }}"
+        dest: "{{ daemon.json_file }}"
+
+    - name: start docker
+      ansible.builtin.service:
+        name: "docker"
+        enabled: true
+        state: started
