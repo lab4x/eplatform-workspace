@@ -1,0 +1,70 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/debian-config/networkd/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  roles:
+    - role: stackhpc.systemd_networkd
+      become: true
+      systemd_networkd_apply_config: true
+      systemd_networkd_cleanup: true
+      systemd_networkd_network: "{{ networkd }}"
+  tasks:
+
+    - block:
+
+      - name: check interfaces file
+        ansible.builtin.stat:
+          path: "/etc/network/interfaces"
+        register: check_file_name
+
+      - name: backup interfaces file
+        when: check_file_name.stat.exists
+        ansible.builtin.copy:
+          remote_src: true
+          src: "/etc/network/interfaces"
+          dest: "/etc/network/interfaces.BeforeEnableNetworkd"
+        
+      - name: remove interfaces file
+        when: check_file_name.stat.exists
+        ansible.builtin.file:
+          path: "/etc/network/interfaces"
+          state: absent
+
+    - block:
+
+      - name: list networkd file
+        ansible.builtin.find:
+          paths: "/etc/systemd/network/"
+          file_type: file
+          patterns: '*.network'
+        register: networkd_file
+
+      - name: read networkd file
+        loop: "{{ networkd_file.files | map(attribute='path') }}"
+        ansible.builtin.shell: "cat {{ item }}"
+        register: networkd_file
+
+      - name: print networkd file
+        ansible.builtin.pause:
+          seconds: 1
+          prompt: |
+            {% for result in networkd_file.results %}
+            //////////////////////////////////////////////////
+            # {{ result.item }}
+            
+            {{ result.stdout }}
+            //////////////////////////////////////////////////
+            {% endfor %}
+
+    - name: enable networkd
+      ansible.builtin.service:
+        name: "systemd-networkd"
+        enabled: true
+        state: started
