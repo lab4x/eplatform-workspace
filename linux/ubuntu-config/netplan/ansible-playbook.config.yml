@@ -1,0 +1,34 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/ubuntu-config/netplan/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  roles:
+    - role: mrlesmithjr.netplan
+      become: true
+      netplan_enabled: true
+      # netplan_config_file: /etc/netplan/00-installer-config.yaml
+      netplan_renderer: networkd
+      netplan_configuration:
+        network: "{{ netplan }}"
+  tasks:
+
+    - block:
+
+      - name: read netplan file
+        ansible.builtin.shell: "cat {{ netplan_config_file }}"
+        register: netplan_file
+
+      - name: print netplan file
+        ansible.builtin.pause:
+          seconds: 1
+          prompt: |
+            //////////////////////////////////////////////////
+            {{ netplan_file.stdout }}
+            //////////////////////////////////////////////////
