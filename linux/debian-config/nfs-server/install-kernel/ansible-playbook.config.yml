@@ -1,0 +1,22 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/debian-config/nfs-server/install-kernel/ansible-playbook.config.yml
+  hosts: nfs-server
+  become: true
+  tasks:
+
+    - name: install the nfs package
+      ansible.builtin.apt:
+        name: 
+          - nfs-kernel-server
+        state: present
+      register: package_result
+      until: "package_result is not failed"
+      retries: 3
+      delay: 5

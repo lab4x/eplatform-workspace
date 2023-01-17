@@ -1,0 +1,64 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/debian-config/nfs-server/update-exports/ansible-playbook.config.yml
+  hosts: nfs-server
+  become: true
+  tasks:
+
+    - block:
+
+      - name: mkdir for nfs exports
+        loop: "{{ nfs.exports | map(attribute='dir') }}"
+        ansible.builtin.file:
+          state: directory
+          path: "{{ item }}"
+          mode: '0777'
+
+      - name: ensure required entries are made to hosts file. # Notes 1232
+        loop: "{{ nfs.exports }}"
+        ansible.builtin.lineinfile:
+          path: /etc/exports
+          state: present
+          create: yes
+          line: "{{ item.dir }}  {{ item.conf }}"
+
+      - name: start nfs service
+        loop:
+          - nfs-config
+          - nfs-kernel-server
+        ansible.builtin.service:
+          name: "{{ item }}"
+          enabled: true
+          state: restarted
+    
+    - block:
+    
+      - name: mkdir mount dir
+        ansible.builtin.file:
+          path: "{{ nfs.test.mount_dir }}"
+          state: directory
+          mode: "{{ nfs.test.mount_permission }}"
+
+      - name: mount point
+        ansible.posix.mount:
+          fstype: "{{ point_type }}"
+          opts: "{{ nfs.test.point_opts }}"
+          src: "{{ nfs.test.point_nfs }}"
+          path: "{{ nfs.test.mount_dir }}"
+          state: mounted
+
+      - name: umount point
+        ansible.posix.mount:
+          path: "{{ nfs.test.mount_dir }}"
+          state: unmounted
+
+      - name: remove mount dir
+        ansible.builtin.file:
+          path: "{{ nfs.test.mount_dir }}"
+          state: absent

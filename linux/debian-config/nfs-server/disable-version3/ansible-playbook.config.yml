@@ -1,0 +1,27 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/debian-config/nfs-server/disable-version3/ansible-playbook.config.yml
+  hosts: nfs-server
+  become: true
+  tasks:
+
+    - name: replace RPCMOUNTDOPTS disable version 3
+      ansible.builtin.replace:
+        path: /etc/default/nfs-kernel-server
+        regexp: 'RPCMOUNTDOPTS.*'
+        replace: 'RPCMOUNTDOPTS="--manage-gids --no-nfs-version 3"'
+        backup: yes
+
+    - name: restart service nfs-kernel-server
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - nfs-config
+        - nfs-kernel-server
