@@ -19,7 +19,7 @@
       ignore_errors: yes
 
 - name: result
-  hosts: performance
+  hosts: linux-master
   tasks:
 
     - name: mkdir for result_path

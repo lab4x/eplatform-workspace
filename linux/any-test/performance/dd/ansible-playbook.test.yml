@@ -29,7 +29,7 @@
     - debug: msg="{{ bench_result }}"
 
 - name: result
-  hosts: performance
+  hosts: linux-master
   tasks:
 
     - name: mkdir for result_path
