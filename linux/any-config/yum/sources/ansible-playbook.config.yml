@@ -17,34 +17,35 @@
         - ansible_pkg_mgr != 'yum'
       ansible.builtin.fail:
         msg: just for yum packager not '{{ ansible_pkg_mgr }}'
-  
-    - name: check config mode
-      when: 
-        - yum.sources.sed is defined
-        - yum.sources.cp is defined
-      ansible.builtin.fail:
-        msg: just choose one of 'yum.sources.sed' and 'yum.sources.cp'
 
     - name: sed replace yum sources
+      loop: "{{ yum.sources.sed | list }}"
+      vars:
+        _expression: "{{ item.expression | default(None) }}"
+        _file: "{{ item.file | default(None) }}"
       when: 
-        - yum.sources.sed is defined
-        - yum.sources.cp is undefined
-        - yum.sources.sed.expression is defined
-        - yum.sources.sed.expression.mirrorlist is defined
-        - yum.sources.sed.expression.baseurl is defined
-        - yum.sources.sed.file is defined
+        - _expression != None
+        - _file != None
       ansible.builtin.shell: "sudo sed \
-        -e '{{ yum.sources.sed.expression.mirrorlist }}' \
-        -e '{{ yum.sources.sed.expression.baseurl }}' \
+        -e '{{ _expression }}' \
         -i.bak \
-        {{ yum.sources.sed.file }}"
+        {{ _file }}"
 
-    - name: file replace yum sources
-      loop: "{{ yum.sources.cp | list }}"
-      when: 
-        - yum.sources.sed is undefined
-        - yum.sources.cp is defined
-      ansible.builtin.copy: "{{ item }}"
+    - name: lineinfile replace yum sources
+      loop: "{{ yum.sources.lineinfile | list }}"
+      vars:
+        _default: 
+          backup: true
+        _lineinfile: "{{ item | combine(_default, recursive=True) }}"
+      ansible.builtin.lineinfile: "{{ _lineinfile }}"
+
+    - name: copy replace yum sources
+      loop: "{{ yum.sources.copy | list }}"
+      vars:
+        _default: 
+          backup: true
+        _copy: "{{ item | combine(_default, recursive=True) }}"
+      ansible.builtin.copy: "{{ _copy }}"
 
     - name: update yum cache
       ansible.builtin.yum:

@@ -18,28 +18,34 @@
       ansible.builtin.fail:
         msg: just for apt packager not '{{ ansible_pkg_mgr }}'
   
-    - name: check config mode
-      when: 
-        - apt.sources.sed is defined
-        - apt.sources.cp is defined
-      ansible.builtin.fail:
-        msg: just choose one of 'apt.sources.sed' and 'apt.sources.cp'
-
     - name: sed replace apt sources
+      loop: "{{ apt.sources.sed | list }}"
+      vars:
+        _expression: "{{ item.expression | default(None) }}"
+        _file: "{{ item.file | default(None) }}"
       when: 
-        - apt.sources.sed is defined
-        - apt.sources.cp is undefined
+        - _expression != None
+        - _file != None
       ansible.builtin.shell: "sudo sed \
-        -e '{{ apt.sources.sed }}' \
+        -e '{{ _expression }}' \
         -i.bak \
-        /etc/apt/sources.list"
+        {{ _file }}"
 
-    - name: file replace apt sources
-      loop: "{{ apt.sources.cp | list }}"
-      when: 
-        - apt.sources.sed is undefined
-        - apt.sources.cp is defined
-      ansible.builtin.copy: "{{ item }}"
+    - name: lineinfile replace apt sources
+      loop: "{{ apt.sources.lineinfile | list }}"
+      vars:
+        _default: 
+          backup: true
+        _lineinfile: "{{ item | combine(_default, recursive=True) }}"
+      ansible.builtin.lineinfile: "{{ _lineinfile }}"
+
+    - name: copy replace apt sources
+      loop: "{{ apt.sources.copy | list }}"
+      vars:
+        _default: 
+          backup: true
+        _copy: "{{ item | combine(_default, recursive=True) }}"
+      ansible.builtin.copy: "{{ _copy }}"
 
     - name: update apt cache
       ansible.builtin.apt:
