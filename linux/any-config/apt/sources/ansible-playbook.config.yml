@@ -11,7 +11,7 @@
   become: true
   tasks: 
   
-    - name: check packager
+    - name: wrong packager
       when: 
         - apt.sources.check | default(true) | bool
         - ansible_pkg_mgr != 'apt'
@@ -19,7 +19,7 @@
         msg: just for apt packager not '{{ ansible_pkg_mgr }}'
   
     - name: sed replace apt sources
-      loop: "{{ apt.sources.sed | list }}"
+      loop: "{{ apt.sources.sed | default([]) | list }}"
       vars:
         _expression: "{{ item.expression | default(None) }}"
         _file: "{{ item.file | default(None) }}"
@@ -32,7 +32,7 @@
         {{ _file }}"
 
     - name: lineinfile replace apt sources
-      loop: "{{ apt.sources.lineinfile | list }}"
+      loop: "{{ apt.sources.lineinfile | default([]) | list }}"
       vars:
         _default: 
           backup: true
@@ -40,7 +40,7 @@
       ansible.builtin.lineinfile: "{{ _lineinfile }}"
 
     - name: copy replace apt sources
-      loop: "{{ apt.sources.copy | list }}"
+      loop: "{{ apt.sources.cp | default([]) | list }}"
       vars:
         _default: 
           backup: true

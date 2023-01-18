@@ -11,7 +11,7 @@
   become: true
   tasks: 
   
-    - name: check packager
+    - name: wrong packager
       when: 
         - yum.sources.check | default(true) | bool
         - ansible_pkg_mgr != 'yum'
@@ -40,7 +40,7 @@
       ansible.builtin.lineinfile: "{{ _lineinfile }}"
 
     - name: copy replace yum sources
-      loop: "{{ yum.sources.copy | list }}"
+      loop: "{{ yum.sources.cp | default([]) | list }}"
       vars:
         _default: 
           backup: true

@@ -37,7 +37,7 @@
       block:
 
       - name: lineinfile replace chronyd conf
-        loop: "{{ chronyd.conf.lineinfile | list  }}"
+        loop: "{{ chronyd.conf.lineinfile | default([]) | list }}"
         vars:
           _default: 
             path: /etc/chrony.conf
@@ -47,7 +47,7 @@
         ansible.builtin.lineinfile: "{{ _lineinfile }}"
 
       - name: copy replace chronyd conf
-        loop: "{{ chronyd.conf.copy | list }}"
+        loop: "{{ chronyd.conf.cp | default([]) | list }}"
         vars:
           _default: 
             dest: /etc/chrony.conf

@@ -29,7 +29,7 @@
       block:
 
       - name: lineinfile replace timesyncd conf
-        loop: "{{ timesyncd.conf.lineinfile | list  }}"
+        loop: "{{ timesyncd.conf.lineinfile | default([]) | list }}"
         vars:
           _default: 
             path: /etc/systemd/timesyncd.conf
@@ -39,7 +39,7 @@
         ansible.builtin.lineinfile: "{{ _lineinfile }}"
 
       - name: copy replace timesyncd conf
-        loop: "{{ timesyncd.conf.copy | list }}"
+        loop: "{{ timesyncd.conf.cp | default([]) | list }}"
         vars:
           _default: 
             dest: /etc/systemd/timesyncd.conf

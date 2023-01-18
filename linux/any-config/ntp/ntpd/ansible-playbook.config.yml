@@ -41,7 +41,7 @@
       block:
 
       - name: lineinfile replace ntpd conf
-        loop: "{{ ntpd.conf.lineinfile | list  }}"
+        loop: "{{ ntpd.conf.lineinfile | default([]) | list }}"
         vars:
           _default: 
             path: /etc/ntp.conf
@@ -51,7 +51,7 @@
         ansible.builtin.lineinfile: "{{ _lineinfile }}"
 
       - name: copy replace ntpd conf
-        loop: "{{ ntpd.conf.copy | list }}"
+        loop: "{{ ntpd.conf.cp | default([]) | list }}"
         vars:
           _default: 
             dest: /etc/ntp.conf
