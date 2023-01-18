@@ -1,0 +1,70 @@
+---
+
+# https://www.digitalocean.com/community/tutorials/how-to-set-up-time-synchronization-on-debian-10
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/ntp/timesyncd/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+
+    - name: start systemd-timesyncd
+      ansible.builtin.service:
+        name: "systemd-timesyncd"
+        enabled: true
+        state: started
+
+    - name: config ntp synchronization
+      ansible.builtin.shell: timedatectl set-ntp true
+
+    # https://serverfault.com/questions/948974/force-systemd-timesyncd-to-sync-time-with-ntp-server-immediately
+    # - name: sync time
+    #   ansible.builtin.shell: timedatectl set-time "2019-06-22 13:41:00"
+
+    - when: timesyncd.conf is defined
+      block:
+
+      - name: lineinfile replace timesyncd conf
+        loop: "{{ timesyncd.conf.lineinfile | list  }}"
+        vars:
+          _default: 
+            path: /etc/systemd/timesyncd.conf
+            backup: true
+            create: true
+          _lineinfile: "{{ item | combine(_default, recursive=True) }}"
+        ansible.builtin.lineinfile: "{{ _lineinfile }}"
+
+      - name: copy replace timesyncd conf
+        loop: "{{ timesyncd.conf.copy | list }}"
+        vars:
+          _default: 
+            dest: /etc/systemd/timesyncd.conf
+            backup: true
+          _copy: "{{ item | combine(_default, recursive=True) }}"
+        ansible.builtin.copy: "{{ _copy }}"
+
+      - name: restart systemd-timesyncd
+        ansible.builtin.service:
+          name: "systemd-timesyncd"
+          enabled: true
+          state: restarted
+
+    - block:
+
+      - name: run timesync status
+        ansible.builtin.shell: "timedatectl timesync-status"
+        register: status_cmd
+
+      - name: print timesync status
+        ansible.builtin.pause:
+          seconds: 1
+          prompt: |
+            //////////////////////////////////////////////////
+
+            {{ status_cmd.stdout }}
+            //////////////////////////////////////////////////
+

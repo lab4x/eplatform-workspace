@@ -1,0 +1,26 @@
+---
+
+- name: config
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../linux/any-config/ntp/ntpdate/ansible-playbook.config.yml
+  hosts: linux
+  become: true
+  tasks: 
+
+    - name: install ntp ntpdate
+      become: true
+      ansible.builtin.package:
+        name: ntpdate
+        state: present
+      register: package_result
+      until: "package_result is not failed"
+      retries: 3
+      delay: 5
+
+    - name: update time
+      ansible.builtin.shell: "ntpdate -u {{ ntpdate.server | default('0.pool.ntp.org') }}"
+  
