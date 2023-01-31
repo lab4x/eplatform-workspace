@@ -1,0 +1,50 @@
+version: "3.3"
+
+networks:
+  external_net-postgres:
+    external: true
+
+volumes:
+  stack_vol-crunchydata-pg-primary:
+  stack_vol-crunchydata-pg-replica:
+
+services:
+  primary:
+    hostname: 'pg-primary'
+    image: crunchydata/crunchy-postgres:centos8-13.3-4.6.3
+    env_file: external_env-primary.env
+    volumes:
+      - stack_vol-crunchydata-pg-primary:/pgdata
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+        mode: host
+    networks:
+      external_net-postgres:
+        aliases:
+          - postgres
+    deploy:
+      placement:
+        constraints:
+          - node.platform.os == linux
+          - node.labels.postgres-node == primary
+
+  replica:
+    image: crunchydata/crunchy-postgres:centos8-13.3-4.6.3
+    env_file: external_env-replica.env
+    volumes:
+      - stack_vol-crunchydata-pg-replica:/pgdata
+    ports:
+      - target: 5432
+        published: 5432
+        protocol: tcp
+        mode: host
+    networks:
+      - external_net-postgres
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.platform.os == linux
+          - node.labels.postgres-node == replica

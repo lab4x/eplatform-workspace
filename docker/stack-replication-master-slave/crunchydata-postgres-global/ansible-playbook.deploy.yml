@@ -1,0 +1,50 @@
+---
+
+- name: deploy
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --inventory $PWD/ansible \
+        $PWD/../../../docker/stack-replication-master-slave/crunchydata-postgres-global/ansible-playbook.deploy.yml
+  hosts: docker-manager[0]
+  tasks: 
+
+    - name: set ws_dir
+      include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws-dir.set.yml"
+      vars: 
+        dir: "{{ playbook_dir }}/../../../"
+
+    - name: set dir_name
+      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-name.set.yml"
+
+    - name: copy dir_path
+      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-path.copy.yml"
+
+    - name: add swarm label
+      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-label.add.yml"
+      vars:
+        labels: "{{ postgres.lab }}"
+
+    - name: add external_net
+      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-networks.add.yml"
+      vars:
+        networks: "{{ postgres.net }}"
+
+    - name: build env_file
+      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-envs.create.yml"
+      vars:
+        envs: 
+          - dest: "{{ dir_path }}/external_env-primary.env"
+            data: "{{ postgres.env.primary }}"
+          - dest: "{{ dir_path }}/external_env-replica.env"
+            data: "{{ postgres.env.replica }}"
+
+    - name: add stack service
+      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-compose.add.yml"
+      vars:
+        compose:
+          type: stack
+          name: "{{ dir_name[0] }}"
+          path: "{{ dir_path }}"
+          files: 
+            - "docker-compose-swarm.yml"
