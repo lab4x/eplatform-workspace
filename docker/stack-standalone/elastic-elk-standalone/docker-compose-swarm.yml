@@ -1,0 +1,100 @@
+version: '3.3'
+
+configs:
+  stack_cfg-elasticsearch.yml:
+    file: ./config/elasticsearch.yml
+  stack_cfg-logstash.yml:
+    file: ./config/logstash.yml
+  stack_cfg-logstash.conf:
+    file: ./config/logstash.conf
+  stack_cfg-kibana.yml:
+    file: ./config/kibana.yml
+
+networks:
+  external_net-elk:
+    external: true
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.12.1
+    env_file: external_env-elasticsearch.env
+    configs:
+      - source: stack_cfg-elasticsearch.yml
+        target: /usr/share/elasticsearch/config/elasticsearch.yml
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - external_net-elk
+    deploy:
+      placement:
+        constraints: 
+          - node.platform.os == linux
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:7.12.1
+    env_file: external_env-logstash.env
+    configs:
+      - source: stack_cfg-logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+      - source: stack_cfg-logstash.conf
+        target: /usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5044:5044"
+      - "5000:5000"
+      - "9600:9600"
+    networks:
+      - external_net-elk
+    deploy:
+      placement:
+        constraints: 
+          - node.platform.os == linux
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.12.1
+    env_file: external_env-kibana.env
+    configs:
+      - source: stack_cfg-kibana.yml
+        target: /usr/share/kibana/config/kibana.yml
+    ports:
+      - target: 5601
+        published: 5601
+        protocol: tcp
+        mode: ingress
+    networks:
+      - external_net-elk
+    deploy:
+      placement:
+        constraints: 
+          - node.platform.os == linux
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s
