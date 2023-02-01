@@ -1,0 +1,33 @@
+version: "3.3"
+
+networks:
+  external_net-influxdb:
+    external: true
+
+configs:
+  stack_cfg-telegraf.conf:
+    file: ./config/telegraf.conf
+
+services:
+  telegraf:
+    image: telegraf:1.19
+    hostname: "{% raw %}{{.Node.ID}}{% endraw %}"
+    user: telegraf:{{ VARS.GID }}
+    env_file: external_env-all.env
+    configs:
+      - source: stack_cfg-telegraf.conf
+        target: /etc/telegraf/telegraf.conf
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - external_net-influxdb
+    deploy:
+      mode: global
+      placement:
+        constraints: 
+          - node.platform.os == linux
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s
