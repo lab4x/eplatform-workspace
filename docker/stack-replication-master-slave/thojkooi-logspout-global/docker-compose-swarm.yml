@@ -1,0 +1,28 @@
+version: '3.3'
+
+networks:
+  external_net-elk:
+    external: true
+
+services:
+  logspout:
+    image: thojkooi/logspout:v3.2.4
+    env_file: external_env-all.env
+    volumes:
+      - /etc/hostname:/etc/host_hostname:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - external_net-elk
+    deploy:
+      mode: global
+      placement:
+        constraints: 
+          - node.platform.os == linux
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s
