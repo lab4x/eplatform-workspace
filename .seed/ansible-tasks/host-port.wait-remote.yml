@@ -19,13 +19,13 @@
     var: remote_docker
 
 - name: host-port.wait-remote|add volume
-  include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-volume.add.yml"
+  include_tasks: docker-volume.add.yml
   vars:
     volume: 
       name: "workspace-volume.{{ meta_seed.workspace.name }}"
 
 - name: host-port.wait-remote|copy volume
-  include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-volume.copy.yml"
+  include_tasks: docker-volume.copy.yml
   vars:
     volume: 
       name: "workspace-volume.{{ meta_seed.workspace.name }}"
@@ -52,6 +52,6 @@
   delay: 10
 
 - name: host-port.wait-remote|loop remote_docker
-  include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-container.loop.yml"
+  include_tasks: docker-container.loop.yml
   vars:
     container_name: "{{ remote_docker.name }}"
