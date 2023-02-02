@@ -14,14 +14,14 @@
     - block:
 
       - name: mkdir for nfs exports
-        loop: "{{ nfs.exports | map(attribute='dir') }}"
+        loop: "{{ nfs_kernel.exports | map(attribute='dir') }}"
         ansible.builtin.file:
           state: directory
           path: "{{ item }}"
           mode: '0777'
 
       - name: ensure required entries are made to hosts file. # Notes 1232
-        loop: "{{ nfs.exports }}"
+        loop: "{{ nfs_kernel.exports }}"
         ansible.builtin.lineinfile:
           path: /etc/exports
           state: present
@@ -41,24 +41,24 @@
     
       - name: mkdir mount dir
         ansible.builtin.file:
-          path: "{{ nfs.test.mount_dir }}"
+          path: "{{ nfs_kernel.test.mount_dir }}"
           state: directory
-          mode: "{{ nfs.test.mount_permission }}"
+          mode: "{{ nfs_kernel.test.mount_permission }}"
 
       - name: mount point
         ansible.posix.mount:
           fstype: "{{ point_type }}"
-          opts: "{{ nfs.test.point_opts }}"
-          src: "{{ nfs.test.point_nfs }}"
-          path: "{{ nfs.test.mount_dir }}"
+          opts: "{{ nfs_kernel.test.point_opts }}"
+          src: "{{ nfs_kernel.test.point_nfs }}"
+          path: "{{ nfs_kernel.test.mount_dir }}"
           state: mounted
 
       - name: umount point
         ansible.posix.mount:
-          path: "{{ nfs.test.mount_dir }}"
+          path: "{{ nfs_kernel.test.mount_dir }}"
           state: unmounted
 
       - name: remove mount dir
         ansible.builtin.file:
-          path: "{{ nfs.test.mount_dir }}"
+          path: "{{ nfs_kernel.test.mount_dir }}"
           state: absent
