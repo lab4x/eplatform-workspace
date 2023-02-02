@@ -37,7 +37,7 @@
         msg: "fail loop container {{ container_name }}"
     
     - name: docker-container.loop|sleep 15 seconds loop container
-      pause:
+      ansible.builtin.pause:
         seconds: 15
 
     - include_tasks: docker-container.loop.yml
