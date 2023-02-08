@@ -11,8 +11,6 @@
 
     - name: set ws_dir
       include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws-dir.set.yml"
-      vars: 
-        dir: "{{ playbook_dir }}/../../../"
 
     - name: set dir_name
       include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-name.set.yml"
