@@ -53,4 +53,4 @@
       ansible.builtin.set_fact:
         loop_retry: "{{ loop_retry | int - 1 }}"
 
-    - include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/nfs-mount.loop.yml"
+    - include_tasks: nfs-mount.loop.yml
