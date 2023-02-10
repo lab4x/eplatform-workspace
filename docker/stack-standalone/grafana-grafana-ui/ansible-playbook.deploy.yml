@@ -10,34 +10,31 @@
   hosts: docker-manager[0]
   tasks:
 
-    - name: set ws_dir
-      include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws-dir.set.yml"
+    - name: set ws
+      include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws.set.yml"
 
-    - name: set dir_name
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-name.set.yml"
+    - name: set dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.set.yml"
 
-    - name: copy dir_path
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-path.copy.yml"
-
-    - name: overwrite dir_copy
-      loop: "{{ grafana.dir_copy }}"
-      when: item.src is defined
-      ansible.builtin.copy: "{{ item }}"
+    - name: copy dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
+      vars:
+        copys: "{{ grafana.dir_copy }}"
 
     - name: add swarm label
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-label.add.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-label.add.yml"
       vars:
         labels: "{{ grafana.lab }}"
 
     - name: add external_net
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-networks.add.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-networks.add.yml"
       vars:
         networks: "{{ grafana.net }}"
   
     # TODO add exports
 
     - name: wait nfs mount
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/nfs-mount.wait.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/nfs-mount.wait.yml"
       vars:
         _default:
           on_manager:
@@ -49,25 +46,25 @@
         wait_nfs: "{{ grafana.dashboards.nfs_wait | default(_default) }}"
 
     - name: build env_file
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-envs.create.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-envs.create.yml"
       vars:
         envs: 
-          - dest: "{{ dir_path }}/external_env-grafana.env"
+          - dest: "{{ dir.remote }}/external_env-grafana.env"
             data: "{{ grafana.env }}"
 
     - name: add stack service
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-compose.add.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-compose.add.yml"
       vars:
         compose:
           type: stack
-          name: "{{ dir_name[0] }}"
-          path: "{{ dir_path }}"
+          name: "{{ dir.names[0] }}"
+          path: "{{ dir.remote }}"
           # files: 
           #   - "docker-compose-swarm.yml"
           template: 
             name: "docker-compose-swarm"
             opt:
-              src: "{{ playbook_dir }}/docker-compose-swarm.yml.j2"
-              dest: "{{ dir_path }}/docker-compose-swarm.yml"
+              src: "{{ dir.local }}/docker-compose-swarm.yml.j2"
+              dest: "{{ dir.remote }}/docker-compose-swarm.yml"
             vars:
               NFS_ADDR: "{{ grafana.bind_addr }}"

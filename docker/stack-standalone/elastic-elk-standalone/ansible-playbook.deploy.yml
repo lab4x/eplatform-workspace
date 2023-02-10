@@ -9,47 +9,44 @@
   hosts: docker-manager[0]
   tasks:  
 
-    - name: set ws_dir
-      include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws-dir.set.yml"
+    - name: set ws
+      include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws.set.yml"
 
-    - name: set dir_name
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-name.set.yml"
+    - name: set dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.set.yml"
 
-    - name: copy dir_path
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/dir-path.copy.yml"
-
-    - name: overwrite dir_copy
-      loop: "{{ elk.dir_copy }}"
-      when: item.src is defined
-      ansible.builtin.copy: "{{ item }}"
+    - name: copy dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
+      vars:
+        copys: "{{ elk.dir_copy }}"
 
     - name: add swarm label
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-label.add.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-label.add.yml"
       vars:
         labels: "{{ elk.lab }}"
 
     - name: add external_net
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-networks.add.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-networks.add.yml"
       vars:
         networks: "{{ elk.net }}"
 
     - name: build env_file
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-envs.create.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-envs.create.yml"
       vars:
         envs: 
-          - dest: "{{ dir_path }}/external_env-elasticsearch.env"
+          - dest: "{{ dir.remote }}/external_env-elasticsearch.env"
             data: "{{ elk.env.elasticsearch }}"
-          - dest: "{{ dir_path }}/external_env-logstash.env"
+          - dest: "{{ dir.remote }}/external_env-logstash.env"
             data: "{{ elk.env.logstash }}"
-          - dest: "{{ dir_path }}/external_env-kibana.env"
+          - dest: "{{ dir.remote }}/external_env-kibana.env"
             data: "{{ elk.env.kibana }}"
 
     - name: add stack service
-      include_tasks: "{{ ws_dir }}/.seed/ansible-tasks/docker-compose.add.yml"
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-compose.add.yml"
       vars:
         compose:
           type: stack
-          name: "{{ dir_name[0] }}"
-          path: "{{ dir_path }}"
+          name: "{{ dir.names[0] }}"
+          path: "{{ dir.remote }}"
           files: 
             - "docker-compose-swarm.yml"
