@@ -1,6 +1,8 @@
 ---
 
 
+# NOTE
+# Need to use the system's nfs client, make sure it is installed
 - name: nfs-mount.wait|list
   when: wait_nfs | type_debug == "list"
   ansible.builtin.set_fact:

@@ -1,6 +1,8 @@
 ---
 
 
+# NOTE
+# Need to use the system's nfs client, make sure it is installed
 - name: nfs-paths.copy|dict
   when: copy_paths | type_debug == "dict"
   ansible.builtin.set_fact:
