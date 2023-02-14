@@ -1,0 +1,57 @@
+version: "3.3"
+
+networks:
+  external_net-postgres:
+    external: true
+  external_net-influxdb:
+    external: true
+  external_net-kafka:
+    external: true
+  external_net-prometheus:
+    external: true
+
+configs:
+  stack_cfg-datasource.yml:
+    file: ./config/datasource.yml
+  stack_cfg-dashboard.yml:
+    file: ./config/dashboard.yml
+
+volumes:
+  stack_vol-lib:
+  stack_vol-dashboards:
+
+services:
+  grafana:
+    image: grafana/grafana:7.3.10
+    env_file: external_env-grafana.env
+    configs:
+      - source: stack_cfg-datasource.yml
+        target: /etc/grafana/provisioning/datasources/datasource.yml
+      - source: stack_cfg-dashboard.yml
+        target: /etc/grafana/provisioning/dashboards/dashboard.yml
+    volumes:
+      - stack_vol-lib:/var/lib/grafana
+      - stack_vol-dashboards:/var/lib/grafana/dashboards
+    ports:
+      - target: 3000
+        published: 3000
+        protocol: tcp
+        mode: ingress
+    networks:
+      - external_net-postgres
+      - external_net-influxdb
+      - external_net-kafka
+      - external_net-prometheus
+    deploy:
+      placement:
+        constraints:
+          - node.platform.os == linux
+          - node.labels.grafana-node == true
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 2
+        window: 120s

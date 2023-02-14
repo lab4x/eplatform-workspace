@@ -6,9 +6,10 @@
       ansible-playbook \
         --ask-become-pass \
         --inventory $PWD/ansible \
-        $PWD/../../../docker/stack-standalone/grafana-grafana-ui/dashboards/ansible-playbook.update.yml
-  hosts: docker-manager[0]
-  tasks: 
+        $PWD/../../../docker/stack-standalone-failover/grafana-grafana-ui/dashboards/ansible-playbook.update.yml
+  hosts: "{{ 'nfs-client:&docker-grafana-node' if (groups['docker-grafana-node'] is defined) else 'nfs-client' }}"
+  run_once: true
+  tasks:
 
     - name: set ws
       include_tasks: "{{ playbook_dir }}/../../../../.seed/ansible-tasks/ws.set.yml"
@@ -18,11 +19,6 @@
       vars:
         length: 2
 
-    - name: copy dir
-      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
-      vars:
-        copys: "{{ grafana.dashboards.dir_copy }}"
-  
     - name: wait nfs mount
       include_tasks: "{{ ws.local }}/.seed/ansible-tasks/nfs-mount.wait.yml"
       vars:
@@ -34,16 +30,21 @@
             unmount: false
             retry: 5
         wait_nfs: "{{ grafana.dashboards.nfs_wait | default(_default) }}"
-  
+
+    - name: copy dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
+      vars:
+        copys: "{{ grafana.dashboards.dir_copy | default([],true) }}"
+
     - name: copy to nfs
       include_tasks: "{{ ws.local }}/.seed/ansible-tasks/nfs-paths.copy.yml"
       vars:
         _default:
           on_manager:
             remote_src: true
-            src: "{{ dir.remote }}/config/"
+            src: "{{ dir.remote }}/dashboards/config/"
             dest: /grafana-dashboards
             mount: "/mnt/nfs/grafana-dashboards"
             option: "vers=4,loud,rw,sync"
-            unmount: false
+            unmount: true
         copy_paths: "{{ grafana.dashboards.nfs_copy | default(_default) }}"

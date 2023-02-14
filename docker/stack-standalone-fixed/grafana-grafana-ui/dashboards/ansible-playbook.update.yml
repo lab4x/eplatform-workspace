@@ -1,0 +1,34 @@
+---
+
+- name: update
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --inventory $PWD/ansible \
+        $PWD/../../../docker/stack-standalone-fixed/grafana-grafana-ui/dashboards/ansible-playbook.update.yml
+  hosts: docker:&docker-grafana-node
+  run_once: true
+  tasks: 
+
+    - name: set ws
+      include_tasks: "{{ playbook_dir }}/../../../../.seed/ansible-tasks/ws.set.yml"
+
+    - name: set dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.set.yml"
+      vars:
+        length: 2
+
+    - name: copy dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
+      vars:
+        copys: "{{ grafana.dashboards.dir_copy | default([],true) }}"
+
+    - name: copy to volume
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-volumes.copy.yml"
+      vars:
+        _default:
+          - name: "{{ dir.names[0] }}_stack_vol-dashboards"
+            remote_src: true
+            src: "{{ dir.remote }}/dashboards/config/"
+            dest: "./"
+        volumes: "{{ grafana.dashboards.vol_cp | default(_default) }}"

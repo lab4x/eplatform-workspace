@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+- name: influxdb-srelay-telegraf
+  type: influxdb
+  url: http://srelay:8086
+  access: proxy
+  database: telegraf
+- name: influxdb-master-telegraf
+  type: influxdb
+  url: http://master:8086
+  access: proxy
+  database: telegraf
+- name: influxdb-slave-telegraf
+  type: influxdb
+  url: http://slave:8086
+  access: proxy
+  database: telegraf
+- name: prometheus
+  type: prometheus
+  url: http://prometheus:9090
+  access: proxy
+  version: 1

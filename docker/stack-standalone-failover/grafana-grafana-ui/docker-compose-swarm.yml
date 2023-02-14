@@ -17,13 +17,10 @@ configs:
     file: ./config/dashboard.yml
 
 volumes:
-  stack_vol-grafana:
-  stack_vol-dashboards:
-    driver: local
-    driver_opts:
-      type: nfs
-      device: device=:/grafana-dashboards
-      o: addr={{ VARS.NFS_ADDR }},rw,nfsvers=4,async
+  external_vol-grafana-lib:
+    external: true
+  external_vol-grafana-dashboards:
+    external: true
 
 services:
   grafana:
@@ -35,8 +32,8 @@ services:
       - source: stack_cfg-dashboard.yml
         target: /etc/grafana/provisioning/dashboards/dashboard.yml
     volumes:
-      - stack_vol-grafana:/var/lib/grafana
-      - stack_vol-dashboards:/var/lib/grafana/dashboards
+      - external_vol-grafana-lib:/var/lib/grafana
+      - external_vol-grafana-dashboards:/var/lib/grafana/dashboards
     ports:
       - target: 3000
         published: 3000
@@ -49,7 +46,7 @@ services:
       - external_net-prometheus
     deploy:
       placement:
-        constraints: 
+        constraints:
           - node.platform.os == linux
           - node.labels.grafana-node == true
       update_config:
