@@ -1,0 +1,185 @@
+---
+
+- name: deploy
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --ask-become-pass \
+        --inventory $PWD/ansible \
+        $PWD/../../../docker/stack-replication-high-availability/node3-itsaur-zookeeper/ansible-playbook.deploy.yml
+  hosts: "{{ 'nfs-client:&docker-zookeeper-node' if (groups['docker-zookeeper-node'] is defined) else 'nfs-client' }}"
+  tasks:
+
+    - name: set ws
+      include_tasks:
+        file: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws.set.yml"
+        # https://github.com/ansible/ansible/issues/72099
+        apply:
+          run_once: true
+
+    - name: set dir
+      include_tasks:
+        file: "{{ ws.local }}/.seed/ansible-tasks/dir.set.yml"
+        apply:
+          run_once: true
+
+    - name: wait nfs mount
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/nfs-mount.wait.yml"
+      vars:
+        _default:
+          - name: on_manager
+            point: "/zookeeper-conf"
+            mount: "/mnt/nfs/zookeeper-conf"
+            option: "vers=4,loud,rw,sync"
+            unmount: true
+            retry: 5
+          - name: on_manager
+            point: "/zookeeper-datalog"
+            mount: "/mnt/nfs/zookeeper-datalog"
+            option: "vers=4,loud,rw,sync"
+            unmount: true
+            retry: 5
+          - name: on_manager
+            point: "/zookeeper-data"
+            mount: "/mnt/nfs/zookeeper-data"
+            option: "vers=4,loud,rw,sync"
+            unmount: true
+            retry: 5
+          - name: on_manager
+            point: "/zookeeper-logs"
+            mount: "/mnt/nfs/zookeeper-logs"
+            option: "vers=4,loud,rw,sync"
+            unmount: true
+            retry: 5
+        wait_nfs: "{{ zookeeper.nfs_wait | default(_default) }}"
+
+
+- name: deploy
+  hosts: "{{ 'docker:&docker-zookeeper-node' if (groups['docker-zookeeper-node'] is defined) else 'docker' }}"
+  tasks:
+
+    - name: set ws
+      when: ws is undefined
+      include_tasks:
+        file: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws.set.yml"
+        # https://github.com/ansible/ansible/issues/72099
+        apply:
+          run_once: true
+
+    - name: set dir
+      when: dir is undefined
+      include_tasks:
+        file: "{{ ws.local }}/.seed/ansible-tasks/dir.set.yml"
+        apply:
+          run_once: true
+
+    - name: copy dir
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
+      vars:
+        copys: "{{ zookeeper.dir_copy | default([],true) }}"
+
+    - name: add external_vol
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-volumes.add.yml"
+      vars:
+        _default:
+          external_vol-zookeeper-conf:
+            driver: local
+          external_vol-zookeeper-datalog:
+            driver: local
+          external_vol-zookeeper-data:
+            driver: local
+          external_vol-zookeeper-logs:
+            driver: local
+        volumes: "{{ zookeeper.vol | default(_default,true) }}"
+
+    - name: copy to volume
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-volumes.copy.yml"
+      vars:
+        _default:
+          external_vol-zookeeper-conf:
+            remote_src: true
+            src: "{{ dir.remote }}/conf/"
+            dest: "./"
+            directory_mode: '0777'
+          external_vol-zookeeper-datalog:
+            remote_src: true
+            src: "{{ dir.remote }}/datalog/"
+            dest: "./"
+            directory_mode: '0777'
+          external_vol-zookeeper-data:
+            remote_src: true
+            src: "{{ dir.remote }}/data/"
+            dest: "./"
+            directory_mode: '0777'
+          external_vol-zookeeper-logs:
+            remote_src: true
+            src: "{{ dir.remote }}/logs/"
+            dest: "./"
+            directory_mode: '0777'
+        volumes: "{{ zookeeper.vol_cp | default(_default) }}"
+
+    - name: add external_net
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-networks.add.yml"
+      vars:
+        _default:
+          external_net-zookeeper:
+            driver: overlay
+            attachable: true
+        networks: "{{ zookeeper.net | default(_default,true) }}"
+
+
+- name: deploy
+  vars:
+    run_wsl: |
+      ansible-playbook \
+        --inventory $PWD/ansible/inventory-ssh.yml \
+        $PWD/../../../docker/stack-replication-high-availability/node3-itsaur-zookeeper/ansible-playbook.deploy.yml
+  hosts: docker-manager
+  run_once: true
+  tasks: 
+
+    - name: set ws
+      when: ws is undefined
+      include_tasks: "{{ playbook_dir }}/../../../.seed/ansible-tasks/ws.set.yml"
+
+    - name: set dir
+      when: dir is undefined
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.set.yml"
+
+    - name: copy dir
+      when: not (dir.synchronized | default(false) | bool)
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/dir.copy.yml"
+      vars:
+        copys: "{{ zookeeper.dir_copy | default([],true) }}"
+
+    - name: add swarm label
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-label.add.yml"
+      vars:
+        labels: "{{ zookeeper.lab | default([],true) }}"
+
+    # - name: add swarm secret
+    #   include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-secrets.add.yml"
+    #   vars:
+    #     secrets: "{{ zookeeper.sec | default([],true) }}"
+
+    # - name: add swarm config
+    #   include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-configs.add.yml"
+    #   vars:
+    #     configs: "{{ zookeeper.cfg | default([],true) }}"
+
+    - name: build env_file
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-envs.create.yml"
+      vars:
+        envs:
+          - dest: "{{ dir.remote }}/external_env-zookeeper.env"
+            data: "{{ zookeeper.env | default([],true) }}"
+
+    - name: add stack service
+      include_tasks: "{{ ws.local }}/.seed/ansible-tasks/docker-compose.add.yml"
+      vars:
+        compose:
+          type: stack
+          name: "{{ dir.names[0] }}"
+          path: "{{ dir.remote }}"
+          files:
+            - "docker-compose-swarm.yml"

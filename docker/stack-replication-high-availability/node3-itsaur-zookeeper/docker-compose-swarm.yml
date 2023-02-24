@@ -1,0 +1,83 @@
+version: '3.8'
+
+networks:
+  zookeeper:
+    name: external_net-zookeeper
+    external: true
+
+volumes:
+  conf:
+    name: external_vol-zookeeper-conf
+    external: true
+  datalog:
+    name: external_vol-zookeeper-datalog
+    external: true
+  data:
+    name: external_vol-zookeeper-data
+    external: true
+  logs:
+    name: external_vol-zookeeper-logs
+    external: true
+
+services:
+  zookeeper:
+    image: itsaur/zookeeper-replicated:3.5
+    env_file: external_env-zookeeper.env
+    environment:
+      REPLICAS: 3
+      SERVICE_NAME: zookeeper
+      # ZOO_CONF_DIR: "/conf/{{.Node.Hostname}}"
+      # ZOO_DATA_DIR: "/data/{{.Node.Hostname}}"
+      # ZOO_DATA_LOG_DIR: "/datalog/{{.Node.Hostname}}"
+      # ZOO_LOG_DIR: "/logs/{{.Node.Hostname}}"
+    volumes:
+      - conf:/conf
+      - datalog:/datalog
+      - data:/data
+      - logs:/logs
+    ports:
+      - target: 2181
+        published: 2181
+        protocol: tcp
+        mode: host
+    networks:
+      - zookeeper
+    deploy:
+      endpoint_mode: dnsrr
+      mode: replicated
+      replicas: 3
+      placement:
+        max_replicas_per_node: 1
+        constraints: 
+          - node.platform.os == linux
+          - node.labels.zookeeper-node == true
+        preferences:
+          - spread: node.platform.os
+      labels:
+        "com.docker.stack.namespace": seed
+      # resources:
+      #   limits:
+      #     cpus: '3'
+      #     memory: 3072M
+      #   reservations:
+      #     cpus: '1'
+      #     memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 2
+        window: 60s
+      rollback_config:
+        parallelism: 0
+        delay: 0s
+        failure_action: pause
+        monitor: 5m
+        max_failure_ratio: 0
+        order: stop-first
+      update_config:
+        parallelism: 0
+        delay: 0s
+        failure_action: rollback
+        monitor: 5m
+        max_failure_ratio: 0
+        order: stop-first
